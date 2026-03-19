@@ -1,6 +1,6 @@
 # [Colima — Raycast Extension](https://github.com/Miskamyasa/raycast-colima)
 
-Manage [Colima](https://github.com/abiosoft/colima) virtual machines and Docker environments without leaving Raycast.
+Manage [Colima](https://github.com/abiosoft/colima) virtual machine instances and Docker environments without leaving Raycast.
 
 ## Why
 
@@ -8,6 +8,7 @@ Colima is a lightweight alternative to Docker Desktop on macOS, but managing it 
 
 ## Prerequisites
 
+- [Raycast](https://raycast.com/) installed on macOS
 - [Colima](https://github.com/abiosoft/colima) installed (`brew install colima`)
 - [Docker CLI](https://docs.docker.com/engine/install/) installed (`brew install docker`)
 
