@@ -8,190 +8,83 @@ import {
   confirmAlert,
   showToast,
   Toast,
-  Form,
-  popToRoot,
 } from "@raycast/api";
 import { useColimaInstances } from "./hooks/useColimaInstances";
 import { useDependencyCheck } from "./hooks/useDependencyCheck";
-import { colimaStart, colimaStop, colimaDelete, colimaCreate, colimaTemplateDefaults } from "./utils/cli";
-import { ColimaCreateOptions, type ColimaTemplateDefaults } from "./utils/types";
-import { useEffect, useReducer, useState } from "react";
+import {
+  colimaStart,
+  colimaStop,
+  colimaDelete,
+} from "./utils/cli";
+import {getErrorMessage} from "./utils/getErrorMessage"
+import {CreateInstanceForm} from "./components/CreateInstanceForm"
 
-interface CreateInstanceFormProps {
-  onCreated: () => void;
+
+async function handleStart(name: string, revalidate: () => void) {
+  const toast = await showToast({
+    style: Toast.Style.Animated,
+    title: `Starting ${name}...`,
+  });
+
+  try {
+    await colimaStart(name);
+    toast.style = Toast.Style.Success;
+    toast.title = `Started ${name}`;
+    await revalidate();
+  } catch (error) {
+    toast.style = Toast.Style.Failure;
+    toast.title = `Failed to start ${name}`;
+    toast.message = getErrorMessage(error);
+  }
 }
 
-interface CreateInstanceFormValues {
-  profile: string;
-  cpus: string;
-  memory: string;
-  disk: string;
-  runtime: ColimaCreateOptions["runtime"];
-  vmType: ColimaCreateOptions["vmType"];
-  kubernetes: boolean;
+async function handleStop(name: string, revalidate: () => void) {
+  const toast = await showToast({
+    style: Toast.Style.Animated,
+    title: `Stopping ${name}...`,
+  });
+
+  try {
+    await colimaStop(name);
+    toast.style = Toast.Style.Success;
+    toast.title = `Stopped ${name}`;
+    await revalidate();
+  } catch (error) {
+    toast.style = Toast.Style.Failure;
+    toast.title = `Failed to stop ${name}`;
+    toast.message = getErrorMessage(error);
+  }
 }
 
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) {
-    return error.message;
+async function handleDelete(name: string, revalidate: () => void) {
+  const confirmed = await confirmAlert({
+    title: "Delete Instance",
+    message: `Are you sure you want to delete "${name}"?`,
+    primaryAction: {
+      title: "Delete",
+      style: Alert.ActionStyle.Destructive,
+    },
+  });
+
+  if (!confirmed) {
+    return;
   }
 
-  return "Unknown error";
-}
+  const toast = await showToast({
+    style: Toast.Style.Animated,
+    title: `Deleting ${name}...`,
+  });
 
-const FALLBACK_DEFAULTS: ColimaTemplateDefaults = {
-  cpus: 2,
-  memory: 2,
-  disk: 100,
-  runtime: "docker",
-  vmType: "qemu",
-  kubernetes: false,
-};
-
-function initialFormValues(defaults: ColimaTemplateDefaults): CreateInstanceFormValues {
-  return {
-    profile: "",
-    cpus: String(defaults.cpus),
-    memory: String(defaults.memory),
-    disk: String(defaults.disk),
-    runtime: defaults.runtime,
-    vmType: defaults.vmType,
-    kubernetes: defaults.kubernetes,
-  };
-}
-
-function CreateInstanceForm({ onCreated }: CreateInstanceFormProps) {
-  const [isLoading, setIsLoading] = useState(true);
-
-  const [formValues, setFormValues] = useReducer(
-    (prev: CreateInstanceFormValues, next: Partial<CreateInstanceFormValues>) => ({
-      ...prev,
-      ...next,
-    }),
-    initialFormValues(FALLBACK_DEFAULTS),
-  );
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const result = await colimaTemplateDefaults();
-        setFormValues(initialFormValues(result));
-      } catch {
-        // keep fallback defaults
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    void load();
-  }, []);
-
-  async function handleSubmit(values: CreateInstanceFormValues) {
-    const { profile, cpus, memory, disk, runtime, vmType, kubernetes } = values;
-    const trimmedProfile = profile.trim();
-
-    if (!trimmedProfile) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Profile name is required",
-      });
-      return;
-    }
-
-    const toast = await showToast({
-      style: Toast.Style.Animated,
-      title: "Creating instance...",
-    });
-
-    try {
-      await colimaCreate({
-        profile: trimmedProfile,
-        cpus: Number(cpus),
-        memory: Number(memory),
-        disk: Number(disk),
-        runtime,
-        vmType,
-        kubernetes,
-      });
-
-      toast.style = Toast.Style.Success;
-      toast.title = "Instance created";
-
-      onCreated();
-      popToRoot();
-    } catch (error) {
-      toast.style = Toast.Style.Failure;
-      toast.title = "Failed to create instance";
-      toast.message = getErrorMessage(error);
-    }
+  try {
+    await colimaDelete(name);
+    toast.style = Toast.Style.Success;
+    toast.title = `Deleted ${name}`;
+    await revalidate();
+  } catch (error) {
+    toast.style = Toast.Style.Failure;
+    toast.title = `Failed to delete ${name}`;
+    toast.message = getErrorMessage(error);
   }
-
-  if (isLoading) {
-    return <Form isLoading />;
-  }
-
-  return (
-    <Form
-      actions={
-        <ActionPanel>
-          <Action.SubmitForm title="Create Instance" onSubmit={handleSubmit} />
-        </ActionPanel>
-      }
-    >
-      <Form.TextField id="profile" title="Profile Name" placeholder="e.g. default, dev, test" />
-      <Form.TextField
-        id="cpus"
-        title="CPUs"
-        value={formValues.cpus}
-        placeholder="Number of CPUs"
-        onChange={(v) => setFormValues({ cpus: v })}
-        error={formValues.cpus && isNaN(Number(formValues.cpus)) ? "Must be a number" : undefined}
-      />
-      <Form.TextField
-        id="memory"
-        title="Memory (GiB)"
-        value={formValues.memory}
-        placeholder="Memory in GiB"
-        onChange={(v) => setFormValues({ memory: v })}
-        error={formValues.memory && isNaN(Number(formValues.memory)) ? "Must be a number" : undefined}
-      />
-      <Form.TextField
-        id="disk"
-        title="Disk (GiB)"
-        value={formValues.disk}
-        placeholder="Disk size in GiB"
-        onChange={(v) => setFormValues({ disk: v })}
-        error={formValues.disk && isNaN(Number(formValues.disk)) ? "Must be a number" : undefined}
-      />
-      <Form.Dropdown
-        id="runtime"
-        title="Runtime"
-        value={formValues.runtime}
-        onChange={(v) => setFormValues({ runtime: v as CreateInstanceFormValues["runtime"] })}
-      >
-        <Form.Dropdown.Item value="docker" title="docker" />
-        <Form.Dropdown.Item value="containerd" title="containerd" />
-        <Form.Dropdown.Item value="incus" title="incus" />
-      </Form.Dropdown>
-      <Form.Dropdown
-        id="vmType"
-        title="VM Type"
-        value={formValues.vmType}
-        onChange={(v) => setFormValues({ vmType: v as CreateInstanceFormValues["vmType"] })}
-      >
-        <Form.Dropdown.Item value="qemu" title="qemu" />
-        <Form.Dropdown.Item value="vz" title="vz" />
-        <Form.Dropdown.Item value="krunkit" title="krunkit" />
-      </Form.Dropdown>
-      <Form.Checkbox
-        id="kubernetes"
-        title="Kubernetes"
-        label="Enable Kubernetes"
-        value={formValues.kubernetes}
-        onChange={(v) => setFormValues({ kubernetes: v })}
-      />
-      <Form.Description text="Note: Runtime, architecture, and VM type cannot be changed after creation." />
-    </Form>
-  );
 }
 
 export default function Command() {
@@ -213,73 +106,6 @@ export default function Command() {
         />
       </List>
     );
-  }
-
-  async function handleStart(name: string) {
-    const toast = await showToast({
-      style: Toast.Style.Animated,
-      title: `Starting ${name}...`,
-    });
-
-    try {
-      await colimaStart(name);
-      toast.style = Toast.Style.Success;
-      toast.title = `Started ${name}`;
-      await revalidate();
-    } catch (error) {
-      toast.style = Toast.Style.Failure;
-      toast.title = `Failed to start ${name}`;
-      toast.message = getErrorMessage(error);
-    }
-  }
-
-  async function handleStop(name: string) {
-    const toast = await showToast({
-      style: Toast.Style.Animated,
-      title: `Stopping ${name}...`,
-    });
-
-    try {
-      await colimaStop(name);
-      toast.style = Toast.Style.Success;
-      toast.title = `Stopped ${name}`;
-      await revalidate();
-    } catch (error) {
-      toast.style = Toast.Style.Failure;
-      toast.title = `Failed to stop ${name}`;
-      toast.message = getErrorMessage(error);
-    }
-  }
-
-  async function handleDelete(name: string) {
-    const confirmed = await confirmAlert({
-      title: "Delete Instance",
-      message: `Are you sure you want to delete "${name}"?`,
-      primaryAction: {
-        title: "Delete",
-        style: Alert.ActionStyle.Destructive,
-      },
-    });
-
-    if (!confirmed) {
-      return;
-    }
-
-    const toast = await showToast({
-      style: Toast.Style.Animated,
-      title: `Deleting ${name}...`,
-    });
-
-    try {
-      await colimaDelete(name);
-      toast.style = Toast.Style.Success;
-      toast.title = `Deleted ${name}`;
-      await revalidate();
-    } catch (error) {
-      toast.style = Toast.Style.Failure;
-      toast.title = `Failed to delete ${name}`;
-      toast.message = getErrorMessage(error);
-    }
   }
 
   return (
@@ -309,7 +135,7 @@ export default function Command() {
                   title="Stop Instance"
                   icon={Icon.Stop}
                   onAction={() => {
-                    void handleStop(instance.name);
+                    void handleStop(instance.name, revalidate);
                   }}
                 />
               ) : (
@@ -317,7 +143,7 @@ export default function Command() {
                   title="Start Instance"
                   icon={Icon.Play}
                   onAction={() => {
-                    void handleStart(instance.name);
+                    void handleStart(instance.name, revalidate);
                   }}
                 />
               )}
@@ -328,7 +154,7 @@ export default function Command() {
                 shortcut={{ modifiers: ["cmd", "shift"], key: "x" }}
                 style={Action.Style.Destructive}
                 onAction={() => {
-                  void handleDelete(instance.name);
+                  void handleDelete(instance.name, revalidate);
                 }}
               />
 
