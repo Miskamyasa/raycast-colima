@@ -12,11 +12,10 @@ import {
   popToRoot,
 } from "@raycast/api";
 import { useColimaInstances } from "./hooks/useColimaInstances";
-import { useColimaTemplateDefaults } from "./hooks/useColimaTemplateDefaults";
 import { useDependencyCheck } from "./hooks/useDependencyCheck";
-import { colimaStart, colimaStop, colimaDelete, colimaCreate } from "./utils/cli";
-import { ColimaCreateOptions } from "./utils/types";
-import { useState, useEffect } from "react";
+import { colimaStart, colimaStop, colimaDelete, colimaCreate, colimaTemplateDefaults } from "./utils/cli";
+import { ColimaCreateOptions, type ColimaTemplateDefaults } from "./utils/types";
+import { useEffect, useReducer, useState } from "react";
 
 interface CreateInstanceFormProps {
   onCreated: () => void;
@@ -40,9 +39,17 @@ function getErrorMessage(error: unknown): string {
   return "Unknown error";
 }
 
-function CreateInstanceForm({ onCreated }: CreateInstanceFormProps) {
-  const { defaults, isLoading } = useColimaTemplateDefaults();
-  const [formValues, setFormValues] = useState<CreateInstanceFormValues>({
+const FALLBACK_DEFAULTS: ColimaTemplateDefaults = {
+  cpus: 2,
+  memory: 2,
+  disk: 100,
+  runtime: "docker",
+  vmType: "qemu",
+  kubernetes: false,
+};
+
+function initialFormValues(defaults: ColimaTemplateDefaults): CreateInstanceFormValues {
+  return {
     profile: "",
     cpus: String(defaults.cpus),
     memory: String(defaults.memory),
@@ -50,19 +57,33 @@ function CreateInstanceForm({ onCreated }: CreateInstanceFormProps) {
     runtime: defaults.runtime,
     vmType: defaults.vmType,
     kubernetes: defaults.kubernetes,
-  });
+  };
+}
+
+function CreateInstanceForm({ onCreated }: CreateInstanceFormProps) {
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [formValues, setFormValues] = useReducer(
+    (prev: CreateInstanceFormValues, next: Partial<CreateInstanceFormValues>) => ({
+      ...prev,
+      ...next,
+    }),
+    initialFormValues(FALLBACK_DEFAULTS),
+  );
 
   useEffect(() => {
-    setFormValues((prev) => ({
-      ...prev,
-      cpus: String(defaults.cpus),
-      memory: String(defaults.memory),
-      disk: String(defaults.disk),
-      runtime: defaults.runtime,
-      vmType: defaults.vmType,
-      kubernetes: defaults.kubernetes,
-    }));
-  }, [defaults.cpus, defaults.memory, defaults.disk, defaults.runtime, defaults.vmType, defaults.kubernetes]);
+    async function load() {
+      try {
+        const result = await colimaTemplateDefaults();
+        setFormValues(initialFormValues(result));
+      } catch {
+        // keep fallback defaults
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    void load();
+  }, []);
 
   async function handleSubmit(values: CreateInstanceFormValues) {
     const { profile, cpus, memory, disk, runtime, vmType, kubernetes } = values;
@@ -122,26 +143,30 @@ function CreateInstanceForm({ onCreated }: CreateInstanceFormProps) {
         title="CPUs"
         value={formValues.cpus}
         placeholder="Number of CPUs"
-        onChange={(v) => setFormValues((s) => ({ ...s, cpus: v }))}
+        onChange={(v) => setFormValues({ cpus: v })}
         error={formValues.cpus && isNaN(Number(formValues.cpus)) ? "Must be a number" : undefined}
       />
       <Form.TextField
         id="memory"
         title="Memory (GiB)"
-        defaultValue={String(defaults.memory)}
+        value={formValues.memory}
         placeholder="Memory in GiB"
+        onChange={(v) => setFormValues({ memory: v })}
+        error={formValues.memory && isNaN(Number(formValues.memory)) ? "Must be a number" : undefined}
       />
       <Form.TextField
         id="disk"
         title="Disk (GiB)"
-        defaultValue={String(defaults.disk)}
+        value={formValues.disk}
         placeholder="Disk size in GiB"
+        onChange={(v) => setFormValues({ disk: v })}
+        error={formValues.disk && isNaN(Number(formValues.disk)) ? "Must be a number" : undefined}
       />
       <Form.Dropdown
         id="runtime"
         title="Runtime"
-        defaultValue={defaults.runtime}
-        onChange={(v) => setFormValues((s) => ({ ...s, runtime: v as CreateInstanceFormValues["runtime"] }))}
+        value={formValues.runtime}
+        onChange={(v) => setFormValues({ runtime: v as CreateInstanceFormValues["runtime"] })}
       >
         <Form.Dropdown.Item value="docker" title="docker" />
         <Form.Dropdown.Item value="containerd" title="containerd" />
@@ -150,8 +175,8 @@ function CreateInstanceForm({ onCreated }: CreateInstanceFormProps) {
       <Form.Dropdown
         id="vmType"
         title="VM Type"
-        defaultValue={defaults.vmType}
-        onChange={(v) => setFormValues((s) => ({ ...s, vmType: v as CreateInstanceFormValues["vmType"] }))}
+        value={formValues.vmType}
+        onChange={(v) => setFormValues({ vmType: v as CreateInstanceFormValues["vmType"] })}
       >
         <Form.Dropdown.Item value="qemu" title="qemu" />
         <Form.Dropdown.Item value="vz" title="vz" />
@@ -161,8 +186,8 @@ function CreateInstanceForm({ onCreated }: CreateInstanceFormProps) {
         id="kubernetes"
         title="Kubernetes"
         label="Enable Kubernetes"
-        defaultValue={defaults.kubernetes}
-        onChange={(v) => setFormValues((s) => ({ ...s, kubernetes: v }))}
+        value={formValues.kubernetes}
+        onChange={(v) => setFormValues({ kubernetes: v })}
       />
       <Form.Description text="Note: Runtime, architecture, and VM type cannot be changed after creation." />
     </Form>

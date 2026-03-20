@@ -425,14 +425,7 @@ export async function colimaTemplateDefaults(): Promise<ColimaTemplateDefaults> 
       return COLIMA_DEFAULTS;
     }
 
-    // 1. Try per-profile config (default profile) — reflects actual instance settings
-    const profileConfig = join(configHome, "default", "colima.yaml");
-    const fromProfile = await readColimaYaml(profileConfig);
-    if (fromProfile) {
-      return fromProfile;
-    }
-
-    // 2. Fall back to the template for new instances
+    // Read from the template for new instances (survives instance deletion)
     const templateConfig = join(configHome, "_templates", "default.yaml");
     const fromTemplate = await readColimaYaml(templateConfig);
     if (fromTemplate) {
