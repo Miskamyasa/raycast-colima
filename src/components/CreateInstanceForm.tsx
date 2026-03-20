@@ -1,20 +1,8 @@
-import {
-  Action,
-  ActionPanel,
-  Form,
-  Icon,
-  popToRoot,
-  showToast,
-  Toast
-} from "@raycast/api"
-import {
-  colimaCreate,
-  colimaSaveTemplateDefaults,
-  colimaTemplateDefaults
-} from "../utils/cli"
-import {ColimaCreateOptions, type ColimaTemplateDefaults} from "../utils/types"
-import {getErrorMessage} from "../utils/getErrorMessage"
-import {useEffect, useReducer, useState} from "react"
+import { Action, ActionPanel, Form, Icon, popToRoot, showToast, Toast } from "@raycast/api";
+import { colimaCreate, colimaSaveTemplateDefaults, colimaTemplateDefaults } from "../utils/cli";
+import { ColimaCreateOptions, type ColimaTemplateDefaults } from "../utils/types";
+import { getErrorMessage } from "../utils/getErrorMessage";
+import { useEffect, useReducer, useState } from "react";
 
 const FALLBACK_DEFAULTS: ColimaTemplateDefaults = {
   cpus: 2,
@@ -111,7 +99,6 @@ async function handleSubmit(values: CreateInstanceFormValues, onCreated: () => v
     toast.message = getErrorMessage(error);
   }
 }
-
 
 function initialFormValues(defaults: ColimaTemplateDefaults): CreateInstanceFormValues {
   return {

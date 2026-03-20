@@ -1,24 +1,9 @@
-import {
-  List,
-  ActionPanel,
-  Action,
-  Icon,
-  Color,
-  Alert,
-  confirmAlert,
-  showToast,
-  Toast,
-} from "@raycast/api";
+import { List, ActionPanel, Action, Icon, Color, Alert, confirmAlert, showToast, Toast } from "@raycast/api";
 import { useColimaInstances } from "./hooks/useColimaInstances";
 import { useDependencyCheck } from "./hooks/useDependencyCheck";
-import {
-  colimaStart,
-  colimaStop,
-  colimaDelete,
-} from "./utils/cli";
-import {getErrorMessage} from "./utils/getErrorMessage"
-import {CreateInstanceForm} from "./components/CreateInstanceForm"
-
+import { colimaStart, colimaStop, colimaDelete } from "./utils/cli";
+import { getErrorMessage } from "./utils/getErrorMessage";
+import { CreateInstanceForm } from "./components/CreateInstanceForm";
 
 async function handleStart(name: string, revalidate: () => void) {
   const toast = await showToast({
